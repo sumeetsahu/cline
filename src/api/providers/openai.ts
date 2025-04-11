@@ -135,6 +135,10 @@ export class OpenAiHandler implements ApiHandler {
 			}
 
 			try {
+				// Log the request payload
+				console.log("====== OpenAI API Request Payload ======")
+				console.log(JSON.stringify(nonStreamParams, null, 2))
+
 				// Make a non-streaming API call
 				const response = await this.client.chat.completions.create(nonStreamParams, {
 					headers: customHeaders,
@@ -161,6 +165,41 @@ export class OpenAiHandler implements ApiHandler {
 				}
 			} catch (error) {
 				console.error("Error in non-streaming OpenAI API call:", error)
+
+				// Enhanced error logging
+				console.error("====== OpenAI API Error Details ======")
+				// Log more details about the error
+				if (error && typeof error === "object") {
+					// Log the error status
+					console.error(`Status code: ${(error as any).status || "unknown"}`)
+
+					// Log the error message
+					console.error(`Error message: ${(error as any).message || "No message available"}`)
+
+					// Log any response body
+					if ((error as any).response) {
+						console.error(
+							"Response body:",
+							(error as any).response.data || (error as any).response.body || "No response body available",
+						)
+					}
+
+					// Log request ID if available
+					if ((error as any).request_id) {
+						console.error(`Request ID: ${(error as any).request_id}`)
+					}
+
+					// Log the error detail/code
+					if ((error as any).error) {
+						console.error("Error details:", (error as any).error)
+					}
+
+					// Log headers if available
+					if ((error as any).headers) {
+						console.error("Response headers:", (error as any).headers)
+					}
+				}
+
 				throw error
 			}
 		}
