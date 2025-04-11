@@ -84,6 +84,7 @@ export interface ModelInfo {
 	supportsImages?: boolean
 	supportsComputerUse?: boolean
 	supportsPromptCache: boolean // this value is hardcoded for now
+	supportsStreaming?: boolean // Whether this model supports streaming responses
 	inputPrice?: number
 	outputPrice?: number
 	cacheWritesPrice?: number

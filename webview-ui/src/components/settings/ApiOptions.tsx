@@ -861,6 +861,21 @@ const ApiOptions = ({ showModelOptions, apiErrorMessage, modelIdErrorMessage, is
 								}}>
 								Supports Computer Use
 							</VSCodeCheckbox>
+							<VSCodeCheckbox
+								checked={apiConfiguration?.openAiModelInfo?.supportsStreaming !== false}
+								onChange={(e: any) => {
+									const isChecked = e.target.checked === true
+									let modelInfo = apiConfiguration?.openAiModelInfo
+										? apiConfiguration.openAiModelInfo
+										: { ...openAiModelInfoSaneDefaults }
+									modelInfo = { ...modelInfo, supportsStreaming: isChecked }
+									setApiConfiguration({
+										...apiConfiguration,
+										openAiModelInfo: modelInfo,
+									})
+								}}>
+								Support Streaming
+							</VSCodeCheckbox>
 							<div style={{ display: "flex", gap: 10, marginTop: "5px" }}>
 								<VSCodeTextField
 									value={

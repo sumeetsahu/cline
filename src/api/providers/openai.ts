@@ -35,6 +35,13 @@ export class OpenAiHandler implements ApiHandler {
 		const modelId = this.options.openAiModelId ?? ""
 		const isDeepseekReasoner = modelId.includes("deepseek-reasoner")
 		const isO3Mini = modelId.includes("o3-mini")
+		const supportsStreaming = this.options.openAiModelInfo?.supportsStreaming ?? true
+
+		// Debugging: Log request details
+		console.log("====== OpenAI API Request Details ======")
+		console.log(`Base URL: ${this.client.baseURL}`)
+		console.log(`Model ID: ${modelId}`)
+		console.log("Custom Headers:", JSON.stringify(this.options.openAiCustomHeaders, null, 2))
 
 		let openAiMessages: OpenAI.Chat.ChatCompletionMessageParam[] = [
 			{ role: "system", content: systemPrompt },
@@ -42,6 +49,19 @@ export class OpenAiHandler implements ApiHandler {
 		]
 		let temperature: number | undefined = this.options.openAiModelInfo?.temperature ?? openAiModelInfoSaneDefaults.temperature
 		let reasoningEffort: ChatCompletionReasoningEffort | undefined = undefined
+
+		// Enhanced debugging logs with more detailed information
+		console.log("====== OpenAI API Configuration Details ======")
+		console.log(`Base URL: ${this.client.baseURL}`)
+		console.log(`Model ID: ${modelId}`)
+		console.log(`API Key Present: ${!!this.options.openAiApiKey}`)
+		console.log(`Raw supportsStreaming value: ${JSON.stringify(this.options.openAiModelInfo?.supportsStreaming)}`)
+		console.log(`Temperature: ${temperature}`)
+		console.log(
+			`Using Model-Specific Format: ${isDeepseekReasoner ? "DeepSeek Reasoner" : isO3Mini ? "O3-Mini" : "Standard"}`,
+		)
+		console.log("Custom Headers:", JSON.stringify(this.options.openAiCustomHeaders, null, 2))
+		console.log(`Raw Message Count: ${messages.length}`)
 
 		if (isDeepseekReasoner) {
 			openAiMessages = convertToR1Format([{ role: "user", content: systemPrompt }, ...messages])
@@ -53,36 +73,92 @@ export class OpenAiHandler implements ApiHandler {
 			reasoningEffort = (this.options.o3MiniReasoningEffort as ChatCompletionReasoningEffort) || "medium"
 		}
 
-		const stream = await this.client.chat.completions.create({
+		// Parse the JSON string custom headers into an object if they exist
+		const customHeaders = this.options.openAiCustomHeaders ? JSON.parse(this.options.openAiCustomHeaders) : undefined
+
+		// Create request parameters
+		const requestParams: any = {
 			model: modelId,
 			messages: openAiMessages,
 			temperature,
-			reasoning_effort: reasoningEffort,
-			stream: true,
-			stream_options: { include_usage: true },
-		})
-		for await (const chunk of stream) {
-			const delta = chunk.choices[0]?.delta
-			if (delta?.content) {
-				yield {
-					type: "text",
-					text: delta.content,
-				}
+		}
+
+		if (reasoningEffort !== undefined) {
+			requestParams.reasoning_effort = reasoningEffort
+		}
+
+		// Handle streaming vs non-streaming API calls
+		if (supportsStreaming) {
+			// Set streaming specific parameters
+			const streamParams = {
+				...requestParams,
+				stream: true,
+				stream_options: { include_usage: true },
 			}
 
-			if (delta && "reasoning_content" in delta && delta.reasoning_content) {
-				yield {
-					type: "reasoning",
-					reasoning: (delta.reasoning_content as string | undefined) || "",
+			const stream = await this.client.chat.completions.create(streamParams, {
+				headers: customHeaders,
+			})
+
+			for await (const chunk of stream) {
+				const delta = chunk.choices[0]?.delta
+				if (delta?.content) {
+					yield {
+						type: "text",
+						text: delta.content,
+					}
+				}
+
+				if (delta && "reasoning_content" in delta && delta.reasoning_content) {
+					yield {
+						type: "reasoning",
+						reasoning: (delta.reasoning_content as string | undefined) || "",
+					}
+				}
+
+				if (chunk.usage) {
+					yield {
+						type: "usage",
+						inputTokens: chunk.usage.prompt_tokens || 0,
+						outputTokens: chunk.usage.completion_tokens || 0,
+					}
 				}
 			}
+		} else {
+			// For non-streaming, explicitly set stream to false
+			const nonStreamParams = {
+				...requestParams,
+				stream: false,
+			}
 
-			if (chunk.usage) {
-				yield {
-					type: "usage",
-					inputTokens: chunk.usage.prompt_tokens || 0,
-					outputTokens: chunk.usage.completion_tokens || 0,
+			try {
+				// Make a non-streaming API call
+				const response = await this.client.chat.completions.create(nonStreamParams, {
+					headers: customHeaders,
+				})
+
+				// Simulate streaming by yielding the entire content at once
+				if (response.choices && response.choices.length > 0) {
+					const choice = response.choices[0]
+					if (choice.message && choice.message.content) {
+						yield {
+							type: "text",
+							text: choice.message.content,
+						}
+					}
 				}
+
+				// Yield usage information if available
+				if (response.usage) {
+					yield {
+						type: "usage",
+						inputTokens: response.usage.prompt_tokens || 0,
+						outputTokens: response.usage.completion_tokens || 0,
+					}
+				}
+			} catch (error) {
+				console.error("Error in non-streaming OpenAI API call:", error)
+				throw error
 			}
 		}
 	}
