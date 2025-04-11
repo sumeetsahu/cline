@@ -111,6 +111,7 @@ type GlobalStateKey =
 	| "asksageApiUrl"
 	| "thinkingBudgetTokens"
 	| "planActSeparateModelsSetting"
+	| "openAiCustomHeaders"
 
 export class ClineProvider implements vscode.WebviewViewProvider {
 	public static readonly sideBarId = "claude-dev.SidebarProvider" // used in package.json as the view's id. This value cannot be changed due to how vscode caches views based on their id, and updating the id would break existing instances of the extension.
@@ -366,7 +367,7 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 		- since we pass base64 images to the webview, we need to specify img-src ${webview.cspSource} data:;
 
 				in meta tag we add nonce attribute: A cryptographic nonce (only used once) to allow scripts. The server must generate a unique nonce value each time it transmits a policy. It is critical to provide a nonce that cannot be guessed as bypassing a resource's policy is otherwise trivial.
-				*/
+		*/
 		const nonce = getNonce()
 
 		// Tip: Install the es6-string-html VS Code extension to enable code highlighting below
@@ -1123,6 +1124,7 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 			openAiApiKey,
 			openAiModelId,
 			openAiModelInfo,
+			openAiCustomHeaders,
 			ollamaModelId,
 			ollamaBaseUrl,
 			ollamaApiOptionsCtxNum,
@@ -1172,6 +1174,7 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 		await this.storeSecret("openAiApiKey", openAiApiKey)
 		await this.updateGlobalState("openAiModelId", openAiModelId)
 		await this.updateGlobalState("openAiModelInfo", openAiModelInfo)
+		await this.updateGlobalState("openAiCustomHeaders", openAiCustomHeaders)
 		await this.updateGlobalState("ollamaModelId", ollamaModelId)
 		await this.updateGlobalState("ollamaBaseUrl", ollamaBaseUrl)
 		await this.updateGlobalState("ollamaApiOptionsCtxNum", ollamaApiOptionsCtxNum)
@@ -1873,6 +1876,10 @@ Here is the project's README to help you get started:\n\n${mcpDetails.readmeCont
 			mcpMarketplaceEnabled,
 			telemetrySetting,
 			planActSeparateModelsSetting,
+			previousModeApiProvider,
+			previousModeModelId,
+			previousModeModelInfo,
+			previousModeThinkingBudgetTokens,
 		} = await this.getState()
 
 		return {
@@ -1896,6 +1903,10 @@ Here is the project's README to help you get started:\n\n${mcpDetails.readmeCont
 			mcpMarketplaceEnabled,
 			telemetrySetting,
 			planActSeparateModelsSetting,
+			previousModeApiProvider,
+			previousModeModelId,
+			previousModeModelInfo,
+			previousModeThinkingBudgetTokens,
 			vscMachineId: vscode.env.machineId,
 		}
 	}
@@ -1957,7 +1968,7 @@ Here is the project's README to help you get started:\n\n${mcpDetails.readmeCont
 			apiModelId,
 			apiKey,
 			openRouterApiKey,
-			clineApiKey,
+			storedClineApiKey,
 			awsAccessKey,
 			awsSecretKey,
 			awsSessionToken,
@@ -1973,6 +1984,7 @@ Here is the project's README to help you get started:\n\n${mcpDetails.readmeCont
 			openAiApiKey,
 			openAiModelId,
 			openAiModelInfo,
+			openAiCustomHeaders,
 			ollamaModelId,
 			ollamaBaseUrl,
 			ollamaApiOptionsCtxNum,
@@ -1991,29 +2003,30 @@ Here is the project's README to help you get started:\n\n${mcpDetails.readmeCont
 			azureApiVersion,
 			openRouterModelId,
 			openRouterModelInfo,
+			vsCodeLmModelSelector,
+			liteLlmBaseUrl,
+			liteLlmModelId,
+			liteLlmApiKey,
+			qwenApiLine,
+			asksageApiKey,
+			asksageApiUrl,
+			xaiApiKey,
+			thinkingBudgetTokens,
+			storedSambanovaApiKey,
 			lastShownAnnouncementId,
 			customInstructions,
 			taskHistory,
 			autoApprovalSettings,
 			browserSettings,
 			chatSettings,
-			vsCodeLmModelSelector,
-			liteLlmBaseUrl,
-			liteLlmModelId,
 			userInfo,
+			mcpMarketplaceEnabled,
+			telemetrySetting,
+			planActSeparateModelsSetting,
 			previousModeApiProvider,
 			previousModeModelId,
 			previousModeModelInfo,
 			previousModeThinkingBudgetTokens,
-			qwenApiLine,
-			liteLlmApiKey,
-			telemetrySetting,
-			asksageApiKey,
-			asksageApiUrl,
-			xaiApiKey,
-			thinkingBudgetTokens,
-			sambanovaApiKey,
-			planActSeparateModelsSettingRaw,
 		] = await Promise.all([
 			this.getGlobalState("apiProvider") as Promise<ApiProvider | undefined>,
 			this.getGlobalState("apiModelId") as Promise<string | undefined>,
@@ -2035,6 +2048,7 @@ Here is the project's README to help you get started:\n\n${mcpDetails.readmeCont
 			this.getSecret("openAiApiKey") as Promise<string | undefined>,
 			this.getGlobalState("openAiModelId") as Promise<string | undefined>,
 			this.getGlobalState("openAiModelInfo") as Promise<ModelInfo | undefined>,
+			this.getGlobalState("openAiCustomHeaders") as Promise<string | undefined>,
 			this.getGlobalState("ollamaModelId") as Promise<string | undefined>,
 			this.getGlobalState("ollamaBaseUrl") as Promise<string | undefined>,
 			this.getGlobalState("ollamaApiOptionsCtxNum") as Promise<string | undefined>,
@@ -2053,135 +2067,100 @@ Here is the project's README to help you get started:\n\n${mcpDetails.readmeCont
 			this.getGlobalState("azureApiVersion") as Promise<string | undefined>,
 			this.getGlobalState("openRouterModelId") as Promise<string | undefined>,
 			this.getGlobalState("openRouterModelInfo") as Promise<ModelInfo | undefined>,
+			this.getGlobalState("vsCodeLmModelSelector") as Promise<vscode.LanguageModelChatSelector | undefined>,
+			this.getGlobalState("liteLlmBaseUrl") as Promise<string | undefined>,
+			this.getGlobalState("liteLlmModelId") as Promise<string | undefined>,
+			this.getSecret("liteLlmApiKey") as Promise<string | undefined>,
+			this.getGlobalState("qwenApiLine") as Promise<string | undefined>,
+			this.getSecret("asksageApiKey") as Promise<string | undefined>,
+			this.getGlobalState("asksageApiUrl") as Promise<string | undefined>,
+			this.getSecret("xaiApiKey") as Promise<string | undefined>,
+			this.getGlobalState("thinkingBudgetTokens") as Promise<number | undefined>,
+			this.getSecret("sambanovaApiKey") as Promise<string | undefined>,
 			this.getGlobalState("lastShownAnnouncementId") as Promise<string | undefined>,
 			this.getGlobalState("customInstructions") as Promise<string | undefined>,
 			this.getGlobalState("taskHistory") as Promise<HistoryItem[] | undefined>,
 			this.getGlobalState("autoApprovalSettings") as Promise<AutoApprovalSettings | undefined>,
 			this.getGlobalState("browserSettings") as Promise<BrowserSettings | undefined>,
 			this.getGlobalState("chatSettings") as Promise<ChatSettings | undefined>,
-			this.getGlobalState("vsCodeLmModelSelector") as Promise<vscode.LanguageModelChatSelector | undefined>,
-			this.getGlobalState("liteLlmBaseUrl") as Promise<string | undefined>,
-			this.getGlobalState("liteLlmModelId") as Promise<string | undefined>,
 			this.getGlobalState("userInfo") as Promise<UserInfo | undefined>,
+			vscode.workspace.getConfiguration("cline").get<boolean>("mcpMarketplace.enabled", true),
+			this.getGlobalState("telemetrySetting") as Promise<TelemetrySetting | undefined>,
+			this.getGlobalState("planActSeparateModelsSetting") as Promise<boolean | undefined>,
 			this.getGlobalState("previousModeApiProvider") as Promise<ApiProvider | undefined>,
 			this.getGlobalState("previousModeModelId") as Promise<string | undefined>,
 			this.getGlobalState("previousModeModelInfo") as Promise<ModelInfo | undefined>,
 			this.getGlobalState("previousModeThinkingBudgetTokens") as Promise<number | undefined>,
-			this.getGlobalState("qwenApiLine") as Promise<string | undefined>,
-			this.getSecret("liteLlmApiKey") as Promise<string | undefined>,
-			this.getGlobalState("telemetrySetting") as Promise<TelemetrySetting | undefined>,
-			this.getSecret("asksageApiKey") as Promise<string | undefined>,
-			this.getGlobalState("asksageApiUrl") as Promise<string | undefined>,
-			this.getSecret("xaiApiKey") as Promise<string | undefined>,
-			this.getGlobalState("thinkingBudgetTokens") as Promise<number | undefined>,
-			this.getSecret("sambanovaApiKey") as Promise<string | undefined>,
-			this.getGlobalState("planActSeparateModelsSetting") as Promise<boolean | undefined>,
 		])
 
-		let apiProvider: ApiProvider
-		if (storedApiProvider) {
-			apiProvider = storedApiProvider
-		} else {
-			// Either new user or legacy user that doesn't have the apiProvider stored in state
-			// (If they're using OpenRouter or Bedrock, then apiProvider state will exist)
-			if (apiKey) {
-				apiProvider = "anthropic"
-			} else {
-				// New users should default to openrouter, since they've opted to use an API key instead of signing in
-				apiProvider = "openrouter"
-			}
-		}
-
-		const o3MiniReasoningEffort = vscode.workspace
-			.getConfiguration("cline.modelSettings.o3Mini")
-			.get("reasoningEffort", "medium")
-
-		const mcpMarketplaceEnabled = vscode.workspace.getConfiguration("cline").get<boolean>("mcpMarketplace.enabled", true)
-
-		// Plan/Act separate models setting is a boolean indicating whether the user wants to use different models for plan and act. Existing users expect this to be enabled, while we want new users to opt in to this being disabled by default.
-		// On win11 state sometimes initializes as empty string instead of undefined
-		let planActSeparateModelsSetting: boolean | undefined = undefined
-		if (planActSeparateModelsSettingRaw === true || planActSeparateModelsSettingRaw === false) {
-			planActSeparateModelsSetting = planActSeparateModelsSettingRaw
-		} else {
-			// default to true for existing users
-			if (storedApiProvider) {
-				planActSeparateModelsSetting = true
-			} else {
-				// default to false for new users
-				planActSeparateModelsSetting = false
-			}
-			// this is a special case where it's a new state, but we want it to default to different values for existing and new users.
-			// persist so next time state is retrieved it's set to the correct value.
-			await this.updateGlobalState("planActSeparateModelsSetting", planActSeparateModelsSetting)
+		const apiConfiguration = {
+			apiProvider: storedApiProvider || "anthropic",
+			apiModelId,
+			apiKey,
+			openRouterApiKey,
+			clineApiKey: storedClineApiKey,
+			awsAccessKey,
+			awsSecretKey,
+			awsSessionToken,
+			awsRegion,
+			awsUseCrossRegionInference,
+			awsBedrockUsePromptCache,
+			awsBedrockEndpoint,
+			awsProfile,
+			awsUseProfile,
+			vertexProjectId,
+			vertexRegion,
+			openAiBaseUrl,
+			openAiApiKey,
+			openAiModelId,
+			openAiModelInfo,
+			openAiCustomHeaders,
+			ollamaModelId,
+			ollamaBaseUrl,
+			ollamaApiOptionsCtxNum,
+			lmStudioModelId,
+			lmStudioBaseUrl,
+			anthropicBaseUrl,
+			geminiApiKey,
+			openAiNativeApiKey,
+			deepSeekApiKey,
+			requestyApiKey,
+			requestyModelId,
+			togetherApiKey,
+			togetherModelId,
+			qwenApiKey,
+			mistralApiKey,
+			azureApiVersion,
+			openRouterModelId,
+			openRouterModelInfo,
+			vsCodeLmModelSelector,
+			liteLlmBaseUrl,
+			liteLlmModelId,
+			liteLlmApiKey,
+			qwenApiLine,
+			asksageApiKey,
+			asksageApiUrl,
+			xaiApiKey,
+			thinkingBudgetTokens,
+			sambanovaApiKey: storedSambanovaApiKey,
 		}
 
 		return {
-			apiConfiguration: {
-				apiProvider,
-				apiModelId,
-				apiKey,
-				openRouterApiKey,
-				clineApiKey,
-				awsAccessKey,
-				awsSecretKey,
-				awsSessionToken,
-				awsRegion,
-				awsUseCrossRegionInference,
-				awsBedrockUsePromptCache,
-				awsBedrockEndpoint,
-				awsProfile,
-				awsUseProfile,
-				vertexProjectId,
-				vertexRegion,
-				openAiBaseUrl,
-				openAiApiKey,
-				openAiModelId,
-				openAiModelInfo,
-				ollamaModelId,
-				ollamaBaseUrl,
-				ollamaApiOptionsCtxNum,
-				lmStudioModelId,
-				lmStudioBaseUrl,
-				anthropicBaseUrl,
-				geminiApiKey,
-				openAiNativeApiKey,
-				deepSeekApiKey,
-				requestyApiKey,
-				requestyModelId,
-				togetherApiKey,
-				togetherModelId,
-				qwenApiKey,
-				qwenApiLine,
-				mistralApiKey,
-				azureApiVersion,
-				openRouterModelId,
-				openRouterModelInfo,
-				vsCodeLmModelSelector,
-				o3MiniReasoningEffort,
-				thinkingBudgetTokens,
-				liteLlmBaseUrl,
-				liteLlmModelId,
-				liteLlmApiKey,
-				asksageApiKey,
-				asksageApiUrl,
-				xaiApiKey,
-				sambanovaApiKey,
-			},
+			apiConfiguration,
 			lastShownAnnouncementId,
 			customInstructions,
 			taskHistory,
-			autoApprovalSettings: autoApprovalSettings || DEFAULT_AUTO_APPROVAL_SETTINGS, // default value can be 0 or empty string
+			autoApprovalSettings: autoApprovalSettings || DEFAULT_AUTO_APPROVAL_SETTINGS,
 			browserSettings: browserSettings || DEFAULT_BROWSER_SETTINGS,
 			chatSettings: chatSettings || DEFAULT_CHAT_SETTINGS,
 			userInfo,
+			mcpMarketplaceEnabled,
+			telemetrySetting: telemetrySetting || "unset",
+			planActSeparateModelsSetting: planActSeparateModelsSetting || false,
 			previousModeApiProvider,
 			previousModeModelId,
 			previousModeModelInfo,
 			previousModeThinkingBudgetTokens,
-			mcpMarketplaceEnabled,
-			telemetrySetting: telemetrySetting || "unset",
-			planActSeparateModelsSetting,
 		}
 	}
 
@@ -2309,8 +2288,8 @@ Here is the project's README to help you get started:\n\n${mcpDetails.readmeCont
 			"togetherApiKey",
 			"qwenApiKey",
 			"mistralApiKey",
-			"clineApiKey",
 			"liteLlmApiKey",
+			"authNonce",
 			"asksageApiKey",
 			"xaiApiKey",
 			"sambanovaApiKey",

@@ -6,6 +6,7 @@ import {
 	VSCodeRadio,
 	VSCodeRadioGroup,
 	VSCodeTextField,
+	VSCodeTextArea,
 } from "@vscode/webview-ui-toolkit/react"
 import { Fragment, memo, useCallback, useEffect, useMemo, useState } from "react"
 import ThinkingBudgetSlider from "./ThinkingBudgetSlider"
@@ -790,6 +791,21 @@ const ApiOptions = ({ showModelOptions, apiErrorMessage, modelIdErrorMessage, is
 							onInput={handleInputChange("azureApiVersion")}
 							placeholder={`Default: ${azureOpenAiDefaultApiVersion}`}
 						/>
+					)}
+					{selectedProvider === "openai" && (
+						<div style={{ marginTop: 10 }}>
+							<label>
+								<strong>Advanced: Custom Headers</strong>
+								<VSCodeTextArea
+									id="custom-headers"
+									value={apiConfiguration?.openAiCustomHeaders || ""}
+									onChange={handleInputChange("openAiCustomHeaders")}
+									placeholder={'Enter JSON headers, e.g.\n{\n  "X-Custom-Header": "value"\n}'}
+									rows={4}
+									style={{ width: "100%", marginTop: 5, fontFamily: "monospace" }}
+								/>
+							</label>
+						</div>
 					)}
 					<div
 						style={{
