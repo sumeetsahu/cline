@@ -100,7 +100,10 @@ export class OpenAiHandler implements ApiHandler {
 				headers: customHeaders,
 			})
 
-			for await (const chunk of stream) {
+			// Explicitly cast stream to a type that supports async iteration
+			const streamIterable = stream as unknown as AsyncIterable<OpenAI.Chat.Completions.ChatCompletionChunk>
+
+			for await (const chunk of streamIterable) {
 				const delta = chunk.choices[0]?.delta
 				if (delta?.content) {
 					yield {
