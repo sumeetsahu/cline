@@ -144,6 +144,19 @@ export class OpenAiHandler implements ApiHandler {
 					headers: customHeaders,
 				})
 
+				// Enhanced debug logging for response inspection
+				console.log("====== OpenAI API Response Details ======")
+				console.log("Response object structure:", JSON.stringify(Object.keys(response), null, 2))
+				console.log("Choices available:", JSON.stringify(response.choices?.length || 0, null, 2))
+				if (response.choices && response.choices.length > 0) {
+					console.log("First choice structure:", JSON.stringify(Object.keys(response.choices[0]), null, 2))
+					console.log("Message structure:", JSON.stringify(Object.keys(response.choices[0].message || {}), null, 2))
+					console.log(
+						"Content preview:",
+						JSON.stringify(response.choices[0].message?.content?.substring(0, 100), null, 2),
+					)
+				}
+
 				// Simulate streaming by yielding the entire content at once
 				if (response.choices && response.choices.length > 0) {
 					const choice = response.choices[0]
